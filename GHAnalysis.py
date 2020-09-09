@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """
 初始化：
-    input: python GHAnalysis.py -i data
+    input: python3 GHAnalysis.py -i data
     output: 0
 测试：
-    input: python GHAnalysis.py -e PushEvent -u greatfire
+    input: python3 GHAnalysis.py -e PushEvent -u greatfire
     output: 24
 
 EventName
@@ -42,7 +42,7 @@ class Data:
         for cur_dir, sub_dir, filenames in os.walk(dir_path):
             filenames = filter(lambda r: r.endswith('.json'), filenames)
             for name in filenames:
-                records.extend(self.__read(f'{dir_path}/{name}'))
+                records.extend(self.__read(f'{cur_dir}/{name}'))
 
         records = self.__reduce_dicts(records)
 
@@ -125,8 +125,8 @@ class Run:
         self.data = Data()
         if args.init:
             self.data.init(args.init)
-        else:
-            self.data.load()
+            return 0
+        self.data.load()
 
         if not args.event:
             raise RuntimeError('error: the following arguments are required: -e/--event')

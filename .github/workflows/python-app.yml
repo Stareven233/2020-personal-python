@@ -26,4 +26,4 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: run
       run: |
-        python GHAnalysis.py
+        python GHAnalysis.py -i root

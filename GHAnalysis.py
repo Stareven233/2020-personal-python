@@ -17,10 +17,11 @@ EventName
 import json
 import os
 import argparse
-# import pickle
-# todo 替换下方的文件读写
+import pickle
 
-# todo 为getEventsUsers等三个函数改名，并优化Run.analyse即可
+# todo 使用pandas读取json
+#      优化__reduce_one
+#      正则表达式逐行提取所需信息
 
 
 class Data:
@@ -60,23 +61,25 @@ class Data:
             self.__repo_events[repo][event] = self.__repo_events[repo].get(event, 0)+1
             self.__user_repo_events[user][repo][event] = self.__user_repo_events[user][repo].get(event, 0)+1
 
-        with open('0.json', 'w', encoding='utf-8') as f:
-            json.dump(self.__user_events, f)
-        with open('1.json', 'w', encoding='utf-8') as f:
-            json.dump(self.__repo_events, f)
-        with open('2.json', 'w', encoding='utf-8') as f:
-            json.dump(self.__user_repo_events, f)
+        # with open('0.json', 'wb', encoding='utf-8') as f:
+            # json.dump(self.__user_events, f)
+        with open('0.json', 'wb') as f:
+            pickle.dump(self.__user_events, f)
+        with open('1.json', 'wb') as f:
+            pickle.dump(self.__repo_events, f)
+        with open('2.json', 'wb') as f:
+            pickle.dump(self.__user_repo_events, f)
 
     def load(self):
         if not any((os.path.exists(f'{i}.json') for i in range(3))):
             raise RuntimeError('error: data file not found')
 
-        x = open('0.json', 'r', encoding='utf-8').read()
-        self.__user_events = json.loads(x)
-        x = open('1.json', 'r', encoding='utf-8').read()
-        self.__repo_events = json.loads(x)
-        x = open('2.json', 'r', encoding='utf-8').read()
-        self.__user_repo_events = json.loads(x)
+        with open('0.json', 'rb') as f:
+            self.__user_events = pickle.load(f)
+        with open('1.json', 'rb') as f:
+            self.__repo_events = pickle.load(f)
+        with open('2.json', 'rb') as f:
+            self.__user_repo_events = pickle.load(f)
 
     def __reduce_one(self, d: dict, prefix: str):
         """

@@ -28,3 +28,5 @@ jobs:
       run: |
         python3 GHAnalysis.py -i /root
         python3 GHAnalysis.py -e PushEvent -u greatfire
+        python3 GHAnalysis.py -e IssueCommentEvent -r joomla/joomla-cms
+        python3 GHAnalysis.py -e PushEvent -u haraldsk -r haraldsk/puppet-module-nfs

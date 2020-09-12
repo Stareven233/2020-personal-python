@@ -6,22 +6,24 @@
 测试：
     input: python3 GHAnalysis.py -e PushEvent -u greatfire
     output: 24
-
-EventName
-    PushEvent
-    IssueCommentEvent
-    IssuesEvent
-    PullRequestEvent
+    input: python3 GHAnalysis.py -e IssueCommentEvent -r joomla/joomla-cms
+    output: 6
+    input: python3 GHAnalysis.py -e PushEvent -u haraldsk -r haraldsk/puppet-module-nfs
+    output: 2
 """
 
-import json
 import os
 import argparse
 import pickle
+import re
 
-# todo 使用pandas读取json
-#      优化__reduce_one
-#      正则表达式逐行提取所需信息
+# todo 一边re一边计数
+# todo 尝试FlashText替代re
+
+EVENTS = ("PushEvent", "IssueCommentEvent", "IssuesEvent", "PullRequestEvent", )
+pattern = re.compile(r'"type":"(\w+?)".*?actor.*?"login":"(\S+?)".*?repo.*?"name":"(\S+?)"')
+# pattern = re.compile('.*?((?:%s)Event).*?actor.*?"login":"(\\S+?)".*?repo.*?"name":"(\\S+?)"' % '|'.join(EVENTS))
+# 正则太长?使用了|多次?会变得特别慢
 
 
 class Data:
@@ -30,12 +32,26 @@ class Data:
         self.__repo_events = {}
         self.__user_repo_events = {}
 
+    # @staticmethod
+    # def __read(file_path: str):
+    #     records = []
+        # with open(file_path, 'r', encoding='utf-8') as f:
+        #     for line in f:
+        #         records.append(json.loads(line))
+        # return records
+
     @staticmethod
-    def __read(file_path: str):
+    def __parse(file_path: str):
+        """
+        从json文件中逐行抽取所需信息元组(event, user, repo)
+        """
         records = []
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
-                records.append(json.loads(line))
+                res = pattern.search(line)
+                if res is None or res[1] not in EVENTS:
+                    continue
+                records.append(res.groups())
         return records
 
     def init(self, dir_path: str):
@@ -43,14 +59,15 @@ class Data:
         for cur_dir, sub_dir, filenames in os.walk(dir_path):
             filenames = filter(lambda r: r.endswith('.json'), filenames)
             for name in filenames:
-                records.extend(self.__read(f'{cur_dir}/{name}'))
+                records.extend(self.__parse(f'{cur_dir}/{name}'))
 
-        records = self.__reduce_dicts(records)
+        # records = self.__reduce_dicts(records)
 
-        for i in records:
-            user = i['actor__login']
-            repo = i['repo__name']
-            event = i['type']
+        for record in records:
+            # user = i['actor__login']
+            # repo = i['repo__name']
+            # event = i['type']
+            event, user, repo = record
 
             self.__user_events.setdefault(user, {})
             self.__user_repo_events.setdefault(user, {})
@@ -61,8 +78,6 @@ class Data:
             self.__repo_events[repo][event] = self.__repo_events[repo].get(event, 0)+1
             self.__user_repo_events[user][repo][event] = self.__user_repo_events[user][repo].get(event, 0)+1
 
-        # with open('0.json', 'wb', encoding='utf-8') as f:
-            # json.dump(self.__user_events, f)
         with open('0.json', 'wb') as f:
             pickle.dump(self.__user_events, f)
         with open('1.json', 'wb') as f:
@@ -81,23 +96,21 @@ class Data:
         with open('2.json', 'rb') as f:
             self.__user_repo_events = pickle.load(f)
 
-    def __reduce_one(self, d: dict, prefix: str):
-        """
-        将字典递归降维，prefix只由当前及上层的key构成
-        {'a': {'b': {'c': {'d': 'e'}}, 'bb': 'bb'}, 'aa': {'aa': 2}} -> {'c__d': 'e', 'a__bb': 'bb', 'aa__aa': 2}
-        """
+    # def __reduce_one(self, d: dict, prefix: str):
+    #     """
+    #     将字典递归降维，prefix只由当前及上层的key构成
+    #     {'a': {'b': {'c': {'d': 'e'}}, 'bb': 'bb'}, 'aa': {'aa': 2}} -> {'c__d': 'e', 'a__bb': 'bb', 'aa__aa': 2}
+    #     """
+    #     dd = {}
+    #     for k, v in d.items():
+    #         if isinstance(v, dict):
+    #             dd.update(self.__reduce_one(v, k))
+    #         else:
+    #             dd[f'{prefix}__{k}' if prefix != '' else k] = v
+    #     return dd
 
-        # todo 或许可直接d[actor][login]取出想要的三个返回
-        dd = {}
-        for k, v in d.items():
-            if isinstance(v, dict):
-                dd.update(self.__reduce_one(v, k))
-            else:
-                dd[f'{prefix}__{k}' if prefix != '' else k] = v
-        return dd
-
-    def __reduce_dicts(self, records_list: list):
-        return [self.__reduce_one(d, '') for d in records_list]
+    # def __reduce_dicts(self, records_list: list):
+    #     return [self.__reduce_one(d, '') for d in records_list]
 
     def get_user_event(self, user: str, event: str) -> int:
         return self.__user_events.get(user, {}).get(event, 0)
@@ -128,7 +141,7 @@ class Run:
         self.data = Data()
         if args.init:
             self.data.init(args.init)
-            return 0
+            return 'init done'
         self.data.load()
 
         if not args.event:

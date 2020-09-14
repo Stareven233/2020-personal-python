@@ -1,6 +1,7 @@
 *.json
 *.noe
 .idea/
+*.bat
 
 
 # Byte-compiled / optimized / DLL files

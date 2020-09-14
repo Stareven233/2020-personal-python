@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """
 初始化：
     input: python3 GHAnalysis.py -i data
@@ -18,7 +19,7 @@ import pickle
 import re
 
 # todo 一边re一边计数
-# todo 尝试FlashText替代re
+# todo 尝试去掉多个get_函数
 
 EVENTS = ("PushEvent", "IssueCommentEvent", "IssuesEvent", "PullRequestEvent", )
 pattern = re.compile(r'"type":"(\w+?)".*?actor.*?"login":"(\S+?)".*?repo.*?"name":"(\S+?)"')
@@ -31,14 +32,6 @@ class Data:
         self.__user_events = {}
         self.__repo_events = {}
         self.__user_repo_events = {}
-
-    # @staticmethod
-    # def __read(file_path: str):
-    #     records = []
-        # with open(file_path, 'r', encoding='utf-8') as f:
-        #     for line in f:
-        #         records.append(json.loads(line))
-        # return records
 
     @staticmethod
     def __parse(file_path: str):
@@ -61,12 +54,7 @@ class Data:
             for name in filenames:
                 records.extend(self.__parse(f'{cur_dir}/{name}'))
 
-        # records = self.__reduce_dicts(records)
-
         for record in records:
-            # user = i['actor__login']
-            # repo = i['repo__name']
-            # event = i['type']
             event, user, repo = record
 
             self.__user_events.setdefault(user, {})
@@ -96,22 +84,6 @@ class Data:
         with open('2.json', 'rb') as f:
             self.__user_repo_events = pickle.load(f)
 
-    # def __reduce_one(self, d: dict, prefix: str):
-    #     """
-    #     将字典递归降维，prefix只由当前及上层的key构成
-    #     {'a': {'b': {'c': {'d': 'e'}}, 'bb': 'bb'}, 'aa': {'aa': 2}} -> {'c__d': 'e', 'a__bb': 'bb', 'aa__aa': 2}
-    #     """
-    #     dd = {}
-    #     for k, v in d.items():
-    #         if isinstance(v, dict):
-    #             dd.update(self.__reduce_one(v, k))
-    #         else:
-    #             dd[f'{prefix}__{k}' if prefix != '' else k] = v
-    #     return dd
-
-    # def __reduce_dicts(self, records_list: list):
-    #     return [self.__reduce_one(d, '') for d in records_list]
-
     def get_user_event(self, user: str, event: str) -> int:
         return self.__user_events.get(user, {}).get(event, 0)
 
@@ -124,7 +96,6 @@ class Data:
 
 class Run:
     def __init__(self):
-        self.basedir = os.path.dirname(os.path.abspath(__file__))
         self.parser = argparse.ArgumentParser()
         self.data = None
         self.arg_init()

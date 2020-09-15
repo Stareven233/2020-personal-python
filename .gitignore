@@ -1,4 +1,5 @@
 *.json
+*.pkl
 *.noe
 .idea/
 *.bat

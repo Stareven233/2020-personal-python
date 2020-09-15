@@ -17,9 +17,9 @@ import os
 import argparse
 import pickle
 import re
-from multiprocessing import Manager, Pool, cpu_count
+from concurrent.futures import ThreadPoolExecutor
 
-# todo 使用多进程io
+# todo 使用多线程io
 
 EVENTS = ("PushEvent", "IssueCommentEvent", "IssuesEvent", "PullRequestEvent", )
 pattern = re.compile(r'"type":"(\w+?)".*?actor.*?"login":"(\S+?)".*?repo.*?"name":"(\S+?)"')
@@ -31,8 +31,7 @@ class Data:
         self.repo_events = {}
         self.user_repo_events = {}
 
-    @staticmethod
-    def parse_events(filename: str, user_events, repo_events, user_repo_events):
+    def __count_events(self, filename: str):
         """
         从单个json文件中逐行抽取所需信息元组(event, user, repo)，并写入字典
         """
@@ -43,41 +42,31 @@ class Data:
                     continue
 
                 event, user, repo = res.groups()
-                u_e = user_events.setdefault(user, {})
-                r_e = repo_events.setdefault(repo, {})
-                ur_e = user_repo_events.setdefault(user, {})
-                # 设默认值并记录字典第一层的键给中间变量
+                self.user_events.setdefault(user, {})
+                self.user_repo_events.setdefault(user, {})
+                self.repo_events.setdefault(repo, {})
+                self.user_repo_events[user].setdefault(repo, {})
 
-                ur_e.setdefault(repo, {})
-                u_e[event] = u_e.get(event, 0)+1
-                r_e[event] = r_e.get(event, 0)+1
-                ur_e[repo][event] = ur_e[repo].get(event, 0)+1
-                # 利用中间变量计数
-
-                user_events[user] = u_e
-                repo_events[repo] = r_e
-                user_repo_events[user] = ur_e
-                # 将值重新赋给manager.dict
-                # 这都是因为它不支持多层直接修改
+                self.user_events[user][event] = self.user_events[user].get(event, 0)+1
+                self.repo_events[repo][event] = self.repo_events[repo].get(event, 0)+1
+                self.user_repo_events[user][repo][event] = self.user_repo_events[user][repo].get(event, 0)+1
 
     def init(self, dir_path: str):
-        manager = Manager()
-        u_e, r_e, ur_e = manager.dict(), manager.dict(), manager.dict()
-        pool = Pool(processes=cpu_count())
-
+        pool = ThreadPoolExecutor()
+        # 近600M数据，单线程2.5s, 默认(40?)线程3.5s
         for cur_dir, sub_dir, filenames in os.walk(dir_path):
             filenames = filter(lambda r: r.endswith('.json'), filenames)
             for name in filenames:
-                pool.apply_async(self.parse_events, args=(f'{cur_dir}/{name}', u_e, r_e, ur_e))
-        pool.close()
-        pool.join()
+                # self.__count_events(f'{cur_dir}/{name}')
+                pool.submit(self.__count_events, f'{cur_dir}/{name}')
+        pool.shutdown()
 
         with open('0.pkl', 'wb') as f:
-            pickle.dump(dict(u_e), f)
+            pickle.dump(self.user_events, f)
         with open('1.pkl', 'wb') as f:
-            pickle.dump(dict(r_e), f)
+            pickle.dump(self.repo_events, f)
         with open('2.pkl', 'wb') as f:
-            pickle.dump(dict(ur_e), f)
+            pickle.dump(self.user_repo_events, f)
 
     def load(self):
         if not any((os.path.exists(f'{i}.pkl') for i in range(3))):
